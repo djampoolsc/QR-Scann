@@ -16,7 +16,6 @@
       }
       .card {
         width: 100%;
-        max-width: 100%;
         background: #fff;
         padding: 16px;
         border-radius: 12px;
@@ -53,9 +52,8 @@
         cursor: pointer;
         touch-action: manipulation;
       }
-      button.cam-btn {
-        background: #0077c8;
-      }
+      button.cam-btn { background: #0077c8; }
+      button.cancel-btn { background: #64748b; }
       #reader {
         width: 100%;
         margin-top: 10px;
@@ -74,6 +72,52 @@
         word-break: break-word;
         background: #dcfce7;
         color: #166534;
+      }
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.65);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        z-index: 999;
+      }
+      .modal-box {
+        width: 100%;
+        max-width: 420px;
+        background: #fff;
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      }
+      .dato-row {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+      }
+      .dato-lbl {
+        font-size: 0.72rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        color: #64748b;
+      }
+      .dato-val {
+        font-size: 1.05rem;
+        font-weight: bold;
+        color: #0f172a;
+        margin-top: 2px;
+        word-break: break-word;
+      }
+      .modal-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .modal-actions button {
+        margin-top: 0;
       }
     </style>
   </head>
@@ -96,11 +140,34 @@
       <label for="qr">Código QR</label>
       <input id="qr" type="text" placeholder="PLH-...">
 
-      <button type="button" onclick="enviar()">Registrar</button>
+      <button type="button" onclick="abrirModalVerificacion()">Verificar y Registrar</button>
       <div id="res"></div>
     </div>
 
+    <div id="modalVerif" class="modal-backdrop">
+      <div class="modal-box">
+        <h3>Verificar con DNI físico</h3>
+        <div class="dato-row">
+          <div class="dato-lbl">Nombre completo</div>
+          <div id="mNombre" class="dato-val">-</div>
+        </div>
+        <div class="dato-row">
+          <div class="dato-lbl">DNI</div>
+          <div id="mDni" class="dato-val">-</div>
+        </div>
+        <div class="dato-row">
+          <div class="dato-lbl">Propiedad / Estado</div>
+          <div id="mExtra" class="dato-val">-</div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="cancel-btn" onclick="cerrarModal()">Cancelar</button>
+          <button type="button" onclick="confirmarYEnviar()">Confirmar y Registrar</button>
+        </div>
+      </div>
+    </div>
+
     <script>
+      const API_URL = 'https://script.google.com/macros/s/AKfycbyF2fh8wCc47d_a-KKxjN3sgx2UigaJ7F8F3yosUBAUPDgSoEL4QbMfCmHJLXJmTPC7/exec';
       let qrScanner = null;
       let camaraAbierta = false;
 
@@ -134,6 +201,7 @@
             } catch (_) {}
             camaraAbierta = false;
             box.style.display = 'none';
+            abrirModalVerificacion();
           },
           () => {}
         ).then(() => {
@@ -141,41 +209,83 @@
         }).catch((e) => {
           camaraAbierta = false;
           box.style.display = 'none';
-          const boxRes = document.getElementById('res');
-          boxRes.style.display = 'block';
-          boxRes.style.background = '#fee2e2';
-          boxRes.style.color = '#991b1b';
-          boxRes.innerText = 'Error cámara: ' + e;
+          mostrarEstado('Error cámara: ' + e, false);
         });
       }
 
-      async function enviar() {
-        const url = 'https://script.google.com/macros/s/AKfycbyF2fh8wCc47d_a-KKxjN3sgx2UigaJ7F8F3yosUBAUPDgSoEL4QbMfCmHJLXJmTPC7/exec';
+      function abrirModalVerificacion() {
+        const qr = document.getElementById('qr').value.trim();
+        if (!qr) return;
+
+        const partes = qr.split('|');
+        document.getElementById('mNombre').innerText = 'Consultando...';
+        document.getElementById('mDni').innerText = partes[1] || 'Consultando...';
+        document.getElementById('mExtra').innerText = 'ID: ' + (partes[0] || qr);
+        document.getElementById('modalVerif').style.display = 'flex';
+
+        const cbName = 'cbPase_' + Date.now();
+        window[cbName] = function (info) {
+          try { delete window[cbName]; } catch (_) {}
+          if (scriptTag && scriptTag.parentNode) {
+            scriptTag.parentNode.removeChild(scriptTag);
+          }
+          if (info && info.encontrado) {
+            document.getElementById('mNombre').innerText = info.trabajador || 'SIN NOMBRE';
+            document.getElementById('mDni').innerText = info.dni || 'SIN DNI';
+            document.getElementById('mExtra').innerText =
+              (info.propiedad || '-') + ' • ' + (info.resultado || info.estadoPase || '');
+          } else {
+            document.getElementById('mNombre').innerText = 'NO REGISTRADO EN HOJA';
+            document.getElementById('mDni').innerText = partes[1] || '-';
+            document.getElementById('mExtra').innerText = (info && info.resultado) || 'DENEGADO_NO_EXISTE';
+          }
+        };
+
+        const scriptTag = document.createElement('script');
+        scriptTag.src = API_URL + '?action=consultar&qr=' + encodeURIComponent(qr) + '&callback=' + cbName;
+        scriptTag.onerror = function () {
+          try { delete window[cbName]; } catch (_) {}
+          document.getElementById('mNombre').innerText = partes[0] || qr;
+          document.getElementById('mDni').innerText = partes[1] || 'Revisar código QR';
+          document.getElementById('mExtra').innerText = 'Verifique con DNI físico antes de confirmar';
+        };
+        document.body.appendChild(scriptTag);
+      }
+
+      function cerrarModal() {
+        document.getElementById('modalVerif').style.display = 'none';
+      }
+
+      async function confirmarYEnviar() {
         const qr = document.getElementById('qr').value.trim();
         const guardia = document.getElementById('guardia').value.trim();
         const movimiento = document.getElementById('mov').value;
-        const box = document.getElementById('res');
-
-        if (!url || !qr) return;
+        cerrarModal();
+        if (!qr) return;
 
         try {
-          await fetch(url, {
+          await fetch(API_URL, {
             method: 'POST',
             mode: 'no-cors',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ qr, movimiento, guardia })
           });
-          box.style.display = 'block';
-          box.style.background = '#dcfce7';
-          box.style.color = '#166534';
-          box.innerText = 'Enviado (' + movimiento + '): ' + qr + '. Verifique en la hoja Bitacora_Garita / Autorizaciones_QR.';
+          mostrarEstado(
+            'Enviado (' + movimiento + '): ' + qr + '. Verifique en Bitacora_Garita / Autorizaciones_QR.',
+            true
+          );
           document.getElementById('qr').value = '';
         } catch (err) {
-          box.style.display = 'block';
-          box.style.background = '#fee2e2';
-          box.style.color = '#991b1b';
-          box.innerText = 'Error de red: ' + err.message;
+          mostrarEstado('Error de red: ' + err.message, false);
         }
+      }
+
+      function mostrarEstado(texto, ok) {
+        const box = document.getElementById('res');
+        box.style.display = 'block';
+        box.style.background = ok ? '#dcfce7' : '#fee2e2';
+        box.style.color = ok ? '#166534' : '#991b1b';
+        box.innerText = texto;
       }
     </script>
   </body>
