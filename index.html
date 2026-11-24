@@ -1,66 +1,145 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
   <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-      body { font-family: Arial, sans-serif; margin: 12px; background: #f1f5f9; color: #0f172a; }
-      .card { max-width: 480px; margin: auto; background: #fff; padding: 14px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
-      label { display: block; margin-top: 8px; font-weight: bold; font-size: 12px; }
-      input, select, button { width: 100%; padding: 10px; margin-top: 4px; border-radius: 6px; border: 1px solid #cbd5e1; box-sizing: border-box; font-size: 14px; }
-      button { background: #0b3d91; color: #fff; border: none; font-weight: bold; margin-top: 10px; cursor: pointer; }
-      #reader { width: 100%; margin-top: 8px; display: none; }
-      #res { margin-top: 10px; padding: 10px; border-radius: 6px; font-weight: bold; display: none; background: #dcfce7; color: #166534; }
+      * { box-sizing: border-box; }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 12px;
+        background: #f1f5f9;
+        color: #0f172a;
+        min-height: 100dvh;
+      }
+      .card {
+        width: 100%;
+        max-width: 100%;
+        background: #fff;
+        padding: 16px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+      h3 {
+        margin: 0 0 12px 0;
+        font-size: 1.15rem;
+        color: #0b3d91;
+      }
+      label {
+        display: block;
+        margin-top: 12px;
+        font-weight: bold;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        color: #475569;
+      }
+      input, select, button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 6px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        font-size: 1rem;
+        min-height: 46px;
+      }
+      button {
+        background: #0b3d91;
+        color: #fff;
+        border: none;
+        font-weight: bold;
+        margin-top: 14px;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      button.cam-btn {
+        background: #0077c8;
+      }
+      #reader {
+        width: 100%;
+        margin-top: 10px;
+        display: none;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      #res {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 0.92rem;
+        line-height: 1.35;
+        display: none;
+        word-break: break-word;
+        background: #dcfce7;
+        color: #166534;
+      }
     </style>
   </head>
   <body>
     <div class="card">
       <h3>Garita — Escáner Directo v1.0</h3>
-      <label>Guardia</label>
-      <input id="guardia" placeholder="Nombre del guardia">
-      <label>Movimiento</label>
+
+      <label for="guardia">Guardia</label>
+      <input id="guardia" type="text" placeholder="Nombre del guardia">
+
+      <label for="mov">Movimiento</label>
       <select id="mov">
         <option value="INGRESO">INGRESO</option>
         <option value="SALIDA">SALIDA</option>
       </select>
-      <button type="button" onclick="iniciarCamara()">Abrir cámara</button>
+
+      <button type="button" class="cam-btn" onclick="iniciarCamara()">Abrir cámara</button>
       <div id="reader"></div>
-      <label>Código QR</label>
-      <input id="qr" placeholder="PLH-...">
+
+      <label for="qr">Código QR</label>
+      <input id="qr" type="text" placeholder="PLH-...">
+
       <button type="button" onclick="enviar()">Registrar</button>
       <div id="res"></div>
     </div>
+
     <script>
       let qrScanner = null;
-      let procesandoLectura = false;
+      let camaraAbierta = false;
 
-      function iniciarCamara() {
-        if (procesandoLectura) return;
+      async function iniciarCamara() {
         const box = document.getElementById('reader');
+        if (camaraAbierta && qrScanner) {
+          try {
+            await qrScanner.stop();
+            qrScanner.clear();
+          } catch (_) {}
+          camaraAbierta = false;
+          box.style.display = 'none';
+          return;
+        }
+
         box.style.display = 'block';
         if (!qrScanner) {
           qrScanner = new Html5Qrcode('reader');
         }
+
         qrScanner.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 220, height: 220 } },
           async (txt) => {
-            if (procesandoLectura) return;
             const codigo = String(txt || '').trim();
             if (!codigo) return;
-            procesandoLectura = true;
             document.getElementById('qr').value = codigo;
             try {
               await qrScanner.stop();
               qrScanner.clear();
             } catch (_) {}
+            camaraAbierta = false;
             box.style.display = 'none';
-            await enviar();
-            procesandoLectura = false;
           },
           () => {}
-        ).catch((e) => {
-          procesandoLectura = false;
+        ).then(() => {
+          camaraAbierta = true;
+        }).catch((e) => {
+          camaraAbierta = false;
           box.style.display = 'none';
           const boxRes = document.getElementById('res');
           boxRes.style.display = 'block';
@@ -89,7 +168,7 @@
           box.style.display = 'block';
           box.style.background = '#dcfce7';
           box.style.color = '#166534';
-          box.innerText = 'Registrado automáticamente (' + movimiento + '): ' + qr;
+          box.innerText = 'Enviado (' + movimiento + '): ' + qr + '. Verifique en la hoja Bitacora_Garita / Autorizaciones_QR.';
           document.getElementById('qr').value = '';
         } catch (err) {
           box.style.display = 'block';
