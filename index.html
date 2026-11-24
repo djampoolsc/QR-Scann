@@ -16,8 +16,6 @@
   <body>
     <div class="card">
       <h3>Garita — Escáner Directo</h3>
-      <label>URL /exec de Apps Script</label>
-      <input id="apiUrl" value="https://script.google.com/macros/s/AKfycbyF2fh8wCc47d_a-KKxjN3sgx2UigaJ7F8F3yosUBAUPDgSoEL4QbMfCmHJLXJmTPC7/exec">
       <label>Guardia</label>
       <input id="guardia" placeholder="Nombre del guardia">
       <label>Movimiento</label>
@@ -61,7 +59,7 @@
       }
 
       async function enviar() {
-        const url = document.getElementById('apiUrl').value.trim();
+        const url = 'https://script.google.com/macros/s/AKfycbyF2fh8wCc47d_a-KKxjN3sgx2UigaJ7F8F3yosUBAUPDgSoEL4QbMfCmHJLXJmTPC7/exec';
         const qr = document.getElementById('qr').value.trim();
         const guardia = document.getElementById('guardia').value.trim();
         const movimiento = document.getElementById('mov').value;
