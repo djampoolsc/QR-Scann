@@ -10,12 +10,14 @@
       input, select, button { width: 100%; padding: 10px; margin-top: 4px; border-radius: 6px; border: 1px solid #cbd5e1; box-sizing: border-box; font-size: 14px; }
       button { background: #0b3d91; color: #fff; border: none; font-weight: bold; margin-top: 10px; cursor: pointer; }
       #reader { width: 100%; margin-top: 8px; display: none; }
-      #res { margin-top: 10px; padding: 10px; border-radius: 6px; font-weight: bold; display: none; }
+      #res { margin-top: 10px; padding: 10px; border-radius: 6px; font-weight: bold; display: none; background: #dcfce7; color: #166534; }
     </style>
   </head>
   <body>
     <div class="card">
       <h3>Garita — Escáner Directo</h3>
+      <label>URL /exec de Apps Script</label>
+      <input id="apiUrl" value="https://script.google.com/macros/s/AKfycbyF2fh8wCc47d_a-KKxjN3sgx2UigaJ7F8F3yosUBAUPDgSoEL4QbMfCmHJLXJmTPC7/exec">
       <label>Guardia</label>
       <input id="guardia" placeholder="Nombre del guardia">
       <label>Movimiento</label>
@@ -32,6 +34,7 @@
     </div>
     <script>
       let qrScanner = null;
+
       function iniciarCamara() {
         const box = document.getElementById('reader');
         box.style.display = 'block';
@@ -41,31 +44,49 @@
           { fps: 10, qrbox: { width: 220, height: 220 } },
           (txt) => {
             document.getElementById('qr').value = txt;
-            qrScanner.stop().then(() => { qrScanner.clear(); box.style.display = 'none'; enviar(); });
+            qrScanner.stop().then(() => {
+              qrScanner.clear();
+              box.style.display = 'none';
+              enviar();
+            });
           },
           () => {}
         ).catch((e) => {
-          document.getElementById('res').style.display = 'block';
-          document.getElementById('res').innerText = 'Error cámara: ' + e;
+          const boxRes = document.getElementById('res');
+          boxRes.style.display = 'block';
+          boxRes.style.background = '#fee2e2';
+          boxRes.style.color = '#991b1b';
+          boxRes.innerText = 'Error cámara: ' + e;
         });
       }
 
       async function enviar() {
-        const url = 'https://script.google.com/macros/s/AKfycbyF2fh8wCc47d_a-KKxjN3sgx2UigaJ7F8F3yosUBAUPDgSoEL4QbMfCmHJLXJmTPC7/exec';
-        const payload = {
-          qr: document.getElementById('qr').value.trim(),
-          movimiento: document.getElementById('mov').value,
-          guardia: document.getElementById('guardia').value.trim()
-        };
-        const resp = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload)
-        });
-        const json = await resp.json();
+        const url = document.getElementById('apiUrl').value.trim();
+        const qr = document.getElementById('qr').value.trim();
+        const guardia = document.getElementById('guardia').value.trim();
+        const movimiento = document.getElementById('mov').value;
         const box = document.getElementById('res');
-        box.style.display = 'block';
-        box.innerText = json.ok ? (json.data.resultado + ' — ' + (json.data.trabajador || '')) : ('Error: ' + json.error);
+
+        if (!url || !qr) return;
+
+        try {
+          await fetch(url, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ qr, movimiento, guardia })
+          });
+          box.style.display = 'block';
+          box.style.background = '#dcfce7';
+          box.style.color = '#166534';
+          box.innerText = 'Enviado (' + movimiento + '): ' + qr + '. Verifique en la hoja Bitacora_Garita / Autorizaciones_QR.';
+          document.getElementById('qr').value = '';
+        } catch (err) {
+          box.style.display = 'block';
+          box.style.background = '#fee2e2';
+          box.style.color = '#991b1b';
+          box.innerText = 'Error de red: ' + err.message;
+        }
       }
     </script>
   </body>
