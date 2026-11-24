@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 12px; background: #f1f5f9; color: #0f172a; }
+      .card { max-width: 480px; margin: auto; background: #fff; padding: 14px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+      label { display: block; margin-top: 8px; font-weight: bold; font-size: 12px; }
+      input, select, button { width: 100%; padding: 10px; margin-top: 4px; border-radius: 6px; border: 1px solid #cbd5e1; box-sizing: border-box; font-size: 14px; }
+      button { background: #0b3d91; color: #fff; border: none; font-weight: bold; margin-top: 10px; cursor: pointer; }
+      #reader { width: 100%; margin-top: 8px; display: none; }
+      #res { margin-top: 10px; padding: 10px; border-radius: 6px; font-weight: bold; display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h3>Garita — Escáner Directo</h3>
+      <label>URL /exec de Apps Script</label>
+      <input id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <label>Guardia</label>
+      <input id="guardia" placeholder="Nombre del guardia">
+      <label>Movimiento</label>
+      <select id="mov">
+        <option value="INGRESO">INGRESO</option>
+        <option value="SALIDA">SALIDA</option>
+      </select>
+      <button type="button" onclick="iniciarCamara()">Abrir cámara</button>
+      <div id="reader"></div>
+      <label>Código QR</label>
+      <input id="qr" placeholder="PLH-...">
+      <button type="button" onclick="enviar()">Registrar</button>
+      <div id="res"></div>
+    </div>
+    <script>
+      let qrScanner = null;
+      function iniciarCamara() {
+        const box = document.getElementById('reader');
+        box.style.display = 'block';
+        qrScanner = new Html5Qrcode('reader');
+        qrScanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          (txt) => {
+            document.getElementById('qr').value = txt;
+            qrScanner.stop().then(() => { qrScanner.clear(); box.style.display = 'none'; enviar(); });
+          },
+          () => {}
+        ).catch((e) => {
+          document.getElementById('res').style.display = 'block';
+          document.getElementById('res').innerText = 'Error cámara: ' + e;
+        });
+      }
+
+      async function enviar() {
+        const url = document.getElementById('apiUrl').value.trim();
+        const payload = {
+          qr: document.getElementById('qr').value.trim(),
+          movimiento: document.getElementById('mov').value,
+          guardia: document.getElementById('guardia').value.trim()
+        };
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        const json = await resp.json();
+        const box = document.getElementById('res');
+        box.style.display = 'block';
+        box.innerText = json.ok ? (json.data.resultado + ' — ' + (json.data.trabajador || '')) : ('Error: ' + json.error);
+      }
+    </script>
+  </body>
+</html>
